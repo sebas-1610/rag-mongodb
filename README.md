@@ -74,20 +74,18 @@ Después de ejecutar `init_db.py`, crear el índice knnVector manualmente:
 1. Atlas UI → tu cluster → **Search** → **Create Search Index**
 2. Seleccionar **JSON Editor**
 3. Colección: `chunks`
-4. Pegar:
+4. Pegar:o
 
 ```json
 {
-  "mappings": {
-    "dynamic": true,
-    "fields": {
-      "embedding": {
-        "dimensions": 384,
-        "similarity": "cosine",
-        "type": "knnVector"
-      }
+  "fields": [
+    {
+      "type": "vector",
+      "path": "embedding",
+      "numDimensions": 384,
+      "similarity": "cosine"
     }
-  }
+  ]
 }
 ```
 
@@ -97,6 +95,8 @@ Después de ejecutar `init_db.py`, crear el índice knnVector manualmente:
 
 ```bash
 python scripts/init_db.py
+# si no funciona probar con:
+python -m scripts.init_db
 ```
 
 ### 5. Ingestar dataset
@@ -105,12 +105,14 @@ python scripts/init_db.py
 # Primero agregar tus documentos a data/dataset.json
 # Luego ejecutar la ingesta con las 3 estrategias:
 python ingestion/pipeline.py
+# si no funciona probar con:
+python -m ingestion.pipeline
 ```
 
 ### 6. Levantar la API
 
 ```bash
-uvicorn api.main:app --reload --port 8000
+uvicorn api.main:app --reload 
 ```
 
 Documentación interactiva: [http://localhost:8000/docs](http://localhost:8000/docs)
@@ -131,9 +133,7 @@ Búsqueda vectorial o híbrida.
 ```json
 {
   "query": "¿Qué es RAG?",
-  "top_k": 5,
-  "estrategia": "semantic",
-  "filtros": {"categoria": "inteligencia-artificial"}
+  "top_k": 5
 }
 ```
 
@@ -143,7 +143,6 @@ Genera respuesta usando contexto de MongoDB + Groq.
 ```json
 {
   "pregunta": "¿Cómo funciona la búsqueda vectorial?",
-  "estrategia": "semantic",
   "top_k": 5
 }
 ```
