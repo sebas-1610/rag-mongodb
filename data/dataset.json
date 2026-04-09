@@ -1,0 +1,166 @@
+[
+    {
+        "titulo": "Introducción a los Sistemas RAG",
+        "contenido_texto": "Los sistemas RAG (Retrieval-Augmented Generation) representan una evolución fundamental en el uso de modelos de lenguaje. A diferencia de los LLMs tradicionales que solo dependen de su conocimiento interno, RAG combina recuperación de información con generación de texto. El proceso consiste en tres etapas: primero se vectoriza una base de conocimiento, luego se recuperan los fragmentos más relevantes para una consulta, y finalmente se pasa ese contexto al LLM para generar una respuesta fundamentada. Esta arquitectura reduce significativamente las alucinaciones y permite actualizar el conocimiento sin reentrenar el modelo.",
+        "categoria": "inteligencia-artificial",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo IA",
+            "año": 2024,
+            "tags": [
+                "RAG",
+                "LLM",
+                "NLP"
+            ]
+        }
+    },
+    {
+        "titulo": "Embeddings y Búsqueda Semántica",
+        "contenido_texto": "Los embeddings son representaciones vectoriales densas que capturan el significado semántico de texto en un espacio de alta dimensión. A diferencia de la búsqueda por palabras clave, la búsqueda semántica permite encontrar documentos relacionados aunque no compartan términos exactos. El modelo all-MiniLM-L6-v2 genera vectores de 384 dimensiones que son eficientes tanto en velocidad como en calidad semántica. La similitud coseno es la métrica más usada: dos vectores con ángulo cercano a 0° tienen significados similares. Esta técnica es fundamental para sistemas RAG, motores de recomendación y detección de duplicados.",
+        "categoria": "inteligencia-artificial",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo IA",
+            "año": 2024,
+            "tags": [
+                "embeddings",
+                "NLP",
+                "vectores"
+            ]
+        }
+    },
+    {
+        "titulo": "MongoDB Atlas Vector Search",
+        "contenido_texto": "MongoDB Atlas Vector Search permite almacenar y consultar embeddings directamente en MongoDB sin necesidad de una base de datos vectorial separada. La funcionalidad usa índices knnVector sobre campos de tipo array float. El operador $vectorSearch en el Aggregation Pipeline realiza búsqueda aproximada de vecinos más cercanos usando el algoritmo HNSW. Los parámetros clave son: numCandidates (candidatos antes del reranking) y limit (resultados finales). Se puede combinar con filtros $match para búsqueda híbrida: similitud vectorial más condiciones sobre metadata como fecha, categoría o idioma.",
+        "categoria": "bases-de-datos",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo BD",
+            "año": 2024,
+            "tags": [
+                "MongoDB",
+                "vectores",
+                "Atlas"
+            ]
+        }
+    },
+    {
+        "titulo": "Estrategias de Chunking en RAG",
+        "contenido_texto": "La fragmentación de documentos (chunking) es una de las decisiones más impactantes en un sistema RAG. Existen tres estrategias principales. Fixed-size chunking divide el texto en ventanas de N tokens con overlap, siendo simple y rápido pero puede cortar ideas a la mitad. Sentence-aware chunking respeta los límites de oraciones, produciendo fragmentos más naturales y legibles. Semantic chunking analiza la similitud entre oraciones adyacentes y crea fragmentos cuando detecta un cambio de tema, logrando la mejor coherencia semántica pero con mayor costo computacional. La elección depende del tipo de contenido y los recursos disponibles.",
+        "categoria": "inteligencia-artificial",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo IA",
+            "año": 2024,
+            "tags": [
+                "chunking",
+                "RAG",
+                "NLP"
+            ]
+        }
+    },
+    {
+        "titulo": "Arquitectura Transformer y Mecanismo de Atención",
+        "contenido_texto": "La arquitectura transformer, presentada en el paper 'Attention is All You Need' (2017), revolucionó el procesamiento de lenguaje natural. El mecanismo de atención multi-head permite al modelo enfocarse en diferentes partes de la secuencia de entrada simultáneamente. Cada cabeza de atención aprende relaciones distintas entre tokens. BERT usa encoders bidireccionales para entender el contexto completo de una oración, lo que lo hace ideal para clasificación y extracción de información. GPT usa decoders autorregresivos para predecir el siguiente token, siendo la base de los modelos generativos actuales.",
+        "categoria": "inteligencia-artificial",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo IA",
+            "año": 2024,
+            "tags": [
+                "transformer",
+                "BERT",
+                "GPT",
+                "atención"
+            ]
+        }
+    },
+    {
+        "titulo": "NoSQL vs SQL: Cuándo Usar Cada Uno",
+        "contenido_texto": "Las bases de datos SQL usan esquemas rígidos y tablas relacionales, ideales para datos estructurados con relaciones complejas. Las bases NoSQL como MongoDB ofrecen esquemas flexibles, escalabilidad horizontal y mejor rendimiento para datos no estructurados. MongoDB almacena documentos JSON, permitiendo estructuras anidadas sin joins costosos. La estrategia de embedding de documentos es óptima para datos que se acceden juntos frecuentemente, mientras referencing con ObjectId funciona mejor para datos compartidos entre colecciones o que cambian independientemente. Para sistemas RAG, MongoDB es especialmente atractivo por su Atlas Vector Search nativo.",
+        "categoria": "bases-de-datos",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo BD",
+            "año": 2024,
+            "tags": [
+                "NoSQL",
+                "SQL",
+                "MongoDB",
+                "diseño"
+            ]
+        }
+    },
+    {
+        "titulo": "Groq y LLMs de Código Abierto",
+        "contenido_texto": "Groq es una plataforma de inferencia de alta velocidad que ofrece acceso gratuito a modelos open-source como Llama 3.1 y Mixtral. Su hardware especializado (LPU - Language Processing Unit) permite inferencia extremadamente rápida, con velocidades de hasta 500 tokens por segundo. La API es compatible con el formato OpenAI, facilitando la migración. Llama 3.1 de Meta es uno de los modelos open-source más capaces, con versiones de 8B, 70B y 405B parámetros. Para sistemas RAG en producción, la versión 8B ofrece el mejor equilibrio entre velocidad y calidad de respuesta.",
+        "categoria": "inteligencia-artificial",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo IA",
+            "año": 2024,
+            "tags": [
+                "Groq",
+                "Llama",
+                "LLM",
+                "API"
+            ]
+        }
+    },
+    {
+        "titulo": "RAGAS: Evaluación Automática de Sistemas RAG",
+        "contenido_texto": "RAGAS (Retrieval Augmented Generation Assessment) es un framework de evaluación automática para sistemas RAG. Mide tres dimensiones clave: Faithfulness evalúa si la respuesta es factualmente consistente con el contexto recuperado, penalizando alucinaciones. Answer Relevancy mide si la respuesta es pertinente a la pregunta original. Context Recall evalúa si el contexto recuperado contiene toda la información necesaria para responder. Los scores van de 0 a 1, siendo 1 el mejor resultado. Para calcular Context Recall se requiere un ground truth manual. RAGAS automatiza lo que normalmente requeriría evaluación humana costosa.",
+        "categoria": "inteligencia-artificial",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo IA",
+            "año": 2024,
+            "tags": [
+                "RAGAS",
+                "evaluación",
+                "RAG"
+            ]
+        }
+    },
+    {
+        "titulo": "FastAPI: Framework Moderno para APIs Python",
+        "contenido_texto": "FastAPI es un framework web de alto rendimiento para construir APIs con Python, basado en type hints estándar. Su validación automática con Pydantic garantiza que los datos de entrada sean correctos. Genera documentación interactiva automáticamente via Swagger UI. El soporte nativo para async/await lo hace ideal para operaciones I/O intensivas como llamadas a bases de datos o APIs externas. Comparado con Flask y Django REST Framework, FastAPI ofrece mejor rendimiento y menor tiempo de desarrollo. Para sistemas RAG, su integración con motor (cliente async de MongoDB) y httpx permite pipelines totalmente asíncronos.",
+        "categoria": "desarrollo-software",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo Dev",
+            "año": 2024,
+            "tags": [
+                "FastAPI",
+                "Python",
+                "API",
+                "async"
+            ]
+        }
+    },
+    {
+        "titulo": "Índices en MongoDB: Compound, Text y Vector",
+        "contenido_texto": "Los índices son críticos para el rendimiento en MongoDB. Los índices compuestos como {fecha: 1, idioma: 1} optimizan consultas que filtran por múltiples campos simultáneamente. El índice de texto full-text permite búsqueda por palabras clave con soporte para múltiples idiomas, incluyendo español. Los índices vectoriales knnVector en Atlas habilitan búsqueda por similitud semántica usando HNSW (Hierarchical Navigable Small World), un algoritmo que balancea velocidad y precisión en espacios de alta dimensión. La estrategia de indexing debe planificarse según los patrones de consulta más frecuentes del sistema.",
+        "categoria": "bases-de-datos",
+        "idioma": "es",
+        "url_imagen": null,
+        "metadata": {
+            "autor": "Equipo BD",
+            "año": 2024,
+            "tags": [
+                "índices",
+                "MongoDB",
+                "rendimiento"
+            ]
+        }
+    }
+]

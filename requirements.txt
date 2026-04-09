@@ -1,0 +1,33 @@
+# Base de datos
+pymongo[srv]==4.7.2
+motor==3.4.0
+
+# API
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# ML / Embeddings
+sentence-transformers==3.0.1
+torch
+numpy
+scikit-learn
+
+# Chunking
+langchain-text-splitters==0.2.2
+nltk==3.8.1
+
+# LLM
+groq==0.9.0
+
+# Evaluación (nota extra)
+ragas==0.1.14 #aun no
+datasets==2.20.0 #tampoco
+
+# Utilidades
+pydantic==2.7.4
+pydantic-settings==2.3.4
+python-dotenv==1.0.1
+httpx==0.27.0
+tqdm==4.66.4
+
