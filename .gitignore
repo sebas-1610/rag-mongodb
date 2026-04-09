@@ -1,2 +1,4 @@
-*.env
-C:\Users\Sebastian\OneDrive\Escritorio\rag-mongodb\.env
+# .gitignore
+.env
+.env.local
+.env*.local
