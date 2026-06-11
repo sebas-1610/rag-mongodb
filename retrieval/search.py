@@ -24,6 +24,71 @@ from database.mongodb import mongo
 
 
 # =============================================================================
+# QUERY EXPANSION - Diccionario de siglas y términos relacionados
+# =============================================================================
+
+ACRONYM_EXPANSIONS = {
+    "rag": "Retrieval-Augmented Generation generación aumentada recuperación",
+    "llm": "Large Language Model modelo de lenguaje grande",
+    "ai": "Artificial Intelligence inteligencia artificial",
+    "ml": "Machine Learning aprendizaje automático",
+    "dl": "Deep Learning aprendizaje profundo",
+    "nlp": "Natural Language Processing procesamiento de lenguaje natural",
+    "cv": "Computer Vision visión por computadora",
+    "db": "base de datos database",
+    "api": "Application Programming Interface interfaz",
+    "sql": "Structured Query Language",
+    "nosql": "not only SQL",
+    "vec": "vectorial vector embedding",
+    "tf": "transformer",
+    "bert": "Bidirectional Encoder Representations Transformers",
+    "gpt": "Generative Pre-trained Transformer",
+    "ragas": "Retrieval Augmented Generation Assessment evaluación",
+    "atlas": "MongoDB Atlas",
+    "hnsw": "Hierarchical Navigable Small World",
+}
+
+# Términos relacionados para búsqueda fuzzy
+RELATED_TERMS = {
+    "retrieval": "RAG recuperación",
+    "augmented": "RAG aumentada",
+    "argument": "augmented aumentada",  # typo común
+    "generation": "generación",
+    "embedding": "embedding vectorial representación vectorial",
+    "chunking": "fragmentación chunking",
+    "transformer": "transformer atención attention",
+    "vectorial": "vector embedding búsqueda semántica",
+}
+
+
+def expand_query(query: str) -> str:
+    """
+    Expande acrónimos y términos relacionados en la consulta.
+    Maneja typos y coincidencias parciales.
+    """
+    query_lower = query.lower()
+    expansions = []
+
+    # 1. Expandir acrónimos exactos
+    for acronym, expansion in ACRONYM_EXPANSIONS.items():
+        if acronym in query_lower.split() or acronym.upper() in query:
+            expansions.append(expansion)
+
+    # 2. Expandir términos relacionados (fuzzy matching)
+    for term, expansion in RELATED_TERMS.items():
+        if term in query_lower:
+            expansions.append(expansion)
+
+    # 3. Detectar patrón "retrieval X generation" (para typos como "argument")
+    if "retrieval" in query_lower and "generation" in query_lower:
+        expansions.append("RAG Retrieval-Augmented Generation generación aumentada")
+
+    if expansions:
+        return f"{query} {' '.join(set(expansions))}"
+    return query
+
+
+# =============================================================================
 # RESULTADO DE BÚSQUEDA
 # =============================================================================
 
@@ -93,7 +158,8 @@ class VectorSearchEngine(SearchEngine):
         filtros: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
 
-        query_vector = self._embedder.embed_single(query)
+        expanded_query = expand_query(query)
+        query_vector = self._embedder.embed_single(expanded_query)
 
         # Construir filtro pre-vectorial (se aplica ANTES del kNN)
         pre_filter: Dict[str, Any] = {}

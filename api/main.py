@@ -17,8 +17,12 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from pathlib import Path
+from bson import ObjectId
 
 from config.settings import get_settings
 from database.mongodb import connect_db, disconnect_db, mongo
@@ -299,6 +303,144 @@ async def run_default_experiment():
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"queries": CONSULTAS_PRUEBA, "reporte": reporte}
+
+
+# =============================================================================
+# DOCUMENTOS - UPLOAD, LISTADO, ELIMINACIÓN
+# =============================================================================
+
+
+@app.post("/upload", tags=["Documentos"])
+async def upload_file(
+    file: UploadFile = File(...),
+    estrategia: str = Form("semantic"),
+):
+    """
+    Sube un archivo (TXT, PDF, DOCX, MD) y lo procesa al RAG.
+    """
+    from extractors.text_extractor import extract_text
+    from ingestion.pipeline import IngestionPipeline
+    from chunking.strategies import ChunkingStrategyFactory
+
+    try:
+        content = await file.read()
+        text = extract_text(file.filename, content)
+
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="No se pudo extraer texto del archivo")
+
+        cfg = get_settings()
+        embedder = get_embedder(cfg.embedding_model)
+        strategy = ChunkingStrategyFactory.create(
+            estrategia,
+            chunk_size=cfg.chunk_size,
+            chunk_overlap=cfg.chunk_overlap,
+            sentence_max=cfg.sentence_max,
+            sentence_overlap=cfg.sentence_overlap,
+            semantic_threshold=cfg.semantic_threshold,
+        )
+        pipeline = IngestionPipeline(strategy, embedder)
+
+        doc_id = await pipeline.ingest_text(
+            text=text,
+            title=file.filename,
+            category="inteligencia-artificial",
+            metadata={"original_filename": file.filename, "temporal": True},
+        )
+
+        return {"doc_id": doc_id, "filename": file.filename, "chunks": "procesados"}
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar archivo: {e}")
+
+
+@app.get("/documents", tags=["Documentos"])
+async def list_documents():
+    """
+    Lista todos los documentos en MongoDB.
+    """
+    docs = []
+    async for doc in mongo.documentos.find():
+        docs.append({
+            "id": str(doc["_id"]),
+            "titulo": doc.get("titulo", ""),
+            "categoria": doc.get("categoria", ""),
+            "fecha_ingesta": doc.get("fecha_ingesta", ""),
+        })
+    return {"documents": docs, "total": len(docs)}
+
+
+@app.delete("/documents/{doc_id}", tags=["Documentos"])
+async def delete_document(doc_id: str):
+    """
+    Elimina un documento y todos sus chunks.
+    """
+    try:
+        oid = ObjectId(doc_id)
+    except:
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    doc = await mongo.documentos.find_one({"_id": oid})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    await mongo.chunks.delete_many({"doc_id": oid})
+    await mongo.documentos.delete_one({"_id": oid})
+
+    return {"deleted": True, "doc_id": doc_id}
+
+
+@app.post("/load-dataset", tags=["Documentos"])
+async def load_dataset():
+    """
+    Carga el dataset predefinido (data/dataset.json) al RAG.
+    """
+    from ingestion.pipeline import ingest_all_strategies, JSONDatasetLoader
+    from chunking.strategies import ChunkingStrategyFactory
+    from embeddings.embedder import get_embedder
+
+    dataset_path = "data/dataset.json"
+    try:
+        cfg = get_settings()
+        embedder = get_embedder(cfg.embedding_model)
+        documentos = JSONDatasetLoader.load(dataset_path)
+
+        ids = []
+        for estrategia_name in ["fixed", "sentence-aware", "semantic"]:
+            strategy = ChunkingStrategyFactory.create(
+                estrategia_name,
+                chunk_size=cfg.chunk_size,
+                chunk_overlap=cfg.chunk_overlap,
+                sentence_max=cfg.sentence_max,
+                sentence_overlap=cfg.sentence_overlap,
+                semantic_threshold=cfg.semantic_threshold,
+            )
+            pipeline = IngestionPipeline(strategy, embedder)
+            batch_ids = await pipeline.ingest_batch(documentos)
+            ids.extend(batch_ids)
+
+        return {"loaded": True, "documents": len(documentos), "total_chunks": len(ids)}
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Dataset no encontrado")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al cargar dataset: {e}")
+
+
+# =============================================================================
+# STATIC FILES & FRONTEND
+# =============================================================================
+
+STATIC_DIR = Path(__file__).parent.parent / "static"
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend():
+        return FileResponse(str(STATIC_DIR / "index.html"))
 
 
 # =============================================================================

@@ -100,13 +100,13 @@ async def init_database() -> None:
                 validator=schema,
                 validationAction="warn",  # warn = no bloquea, solo avisa
             )
-            print(f"  ✓ Colección '{nombre}' creada con schema validation")
+            print(f"  OK Coleccion '{nombre}' creada con schema validation")
         else:
             # Actualizar validación si ya existe
             await db.command(
                 {"collMod": nombre, "validator": schema, "validationAction": "warn"}
             )
-            print(f"  ✓ Colección '{nombre}' ya existe — schema actualizado")
+            print(f"  OK Coleccion '{nombre}' ya existe - schema actualizado")
 
     # ── 2. Índices en documentos ─────────────────────────────────────────────
     print("\nCreando índices en 'documentos'...")
@@ -122,9 +122,9 @@ async def init_database() -> None:
     await db["documentos"].create_index(
         [("categoria", ASCENDING)], name="idx_categoria"
     )
-    print("  ✓ idx_fecha_idioma (compuesto)")
-    print("  ✓ idx_texto_completo (texto completo)")
-    print("  ✓ idx_categoria")
+    print("  OK idx_fecha_idioma (compuesto)")
+    print("  OK idx_texto_completo (texto completo)")
+    print("  OK idx_categoria")
 
     # ── 3. Índices en chunks ─────────────────────────────────────────────────
     print("\nCreando índices en 'chunks'...")
@@ -137,8 +137,8 @@ async def init_database() -> None:
         [("estrategia_chunking", ASCENDING), ("chunk_index", ASCENDING)],
         name="idx_estrategia_index",
     )
-    print("  ✓ idx_doc_estrategia (compuesto)")
-    print("  ✓ idx_estrategia_index (compuesto)")
+    print("  OK idx_doc_estrategia (compuesto)")
+    print("  OK idx_estrategia_index (compuesto)")
 
     # ── 4. Índice vectorial en Atlas (knnVector) ─────────────────────────────
     print("\nNOTA: El índice vectorial (knnVector) debe crearse manualmente")
@@ -161,19 +161,19 @@ async def init_database() -> None:
     """
     )
     print("  Pasos:")
-    print("  1. Ir a Atlas → tu cluster → Search → Create Search Index")
+    print("  1. Ir a Atlas > tu cluster > Search > Create Search Index")
     print("  2. Seleccionar 'JSON Editor'")
     print("  3. Colección: chunks")
     print("  4. Pegar el JSON de arriba")
-    print("  5. Nombre del índice: 'vector_index'")
+    print("  5. Nombre del indice: 'vector_index'")
 
     # ── 5. Índice en evaluaciones ────────────────────────────────────────────
     print("\nCreando índices en 'evaluaciones'...")
     await db["evaluaciones"].create_index([("fecha", ASCENDING)], name="idx_fecha_eval")
-    print("  ✓ idx_fecha_eval")
+    print("  OK idx_fecha_eval")
 
     client.close()
-    print("\n✅ Inicialización completada.")
+    print("\nInicializacion completada.")
 
 
 if __name__ == "__main__":

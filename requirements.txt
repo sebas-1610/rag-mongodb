@@ -31,3 +31,8 @@ python-dotenv
 httpx
 tqdm
 
+# Extractores de texto
+pypdf2
+python-docx
+beautifulsoup4
+

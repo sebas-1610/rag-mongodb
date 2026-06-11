@@ -131,6 +131,29 @@ class IngestionPipeline:
             ids.append(doc_id)
         return ids
 
+    async def ingest_text(
+        self,
+        text: str,
+        title: str,
+        category: str = "inteligencia-artificial",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Ingesta texto directamente (sin archivo).
+        Retorna el _id del documento insertado.
+        """
+        base_metadata = {"autor": "usuario", "año": 2026}
+        if metadata:
+            base_metadata.update(metadata)
+
+        doc = DocumentoPadre(
+            titulo=title,
+            contenido_texto=text,
+            categoria=category,
+            metadata=base_metadata,
+        )
+        return await self.ingest_document(doc)
+
 
 # =============================================================================
 # LOADER DE JSON  (para el dataset)

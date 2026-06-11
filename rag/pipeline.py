@@ -80,9 +80,13 @@ class PromptBuilder:
     """
 
     SYSTEM_PROMPT = """Eres un asistente experto en tecnología e inteligencia artificial.
-Responde siempre en español, de forma precisa y basándote ÚNICAMENTE en el contexto proporcionado.
-Si la información no está en el contexto, indica claramente que no dispones de esa información.
-No inventes ni especules más allá del contexto."""
+Responde siempre en español, de forma precisa y basándote en el contexto proporcionado.
+
+Instrucciones importantes:
+- Entiende que los usuarios pueden cometer errores de ortografía o usar variantes (ej: "argument" vs "augmented").
+- Si el contexto contiene información relevante aunque no sea la palabra exacta, úsala para responder.
+- Solo indica que no tienes información si realmente no hay nada relevante en el contexto.
+- No inventes ni especules más allá del contexto."""
 
     @staticmethod
     def build(query: str, resultados: List[SearchResult]) -> str:
