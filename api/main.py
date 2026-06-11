@@ -313,14 +313,17 @@ async def run_default_experiment():
 @app.post("/upload", tags=["Documentos"])
 async def upload_file(
     file: UploadFile = File(...),
-    estrategia: str = Form("semantic"),
 ):
     """
-    Sube un archivo (TXT, PDF, DOCX, MD) y lo procesa al RAG.
+    Sube un archivo (TXT, PDF, DOCX, MD) y lo procesa con las 3 estrategias de chunking.
+    Crea 1 documento y 3 conjuntos de chunks (fixed, sentence-aware, semantic).
     """
     from extractors.text_extractor import extract_text
-    from ingestion.pipeline import IngestionPipeline
     from chunking.strategies import ChunkingStrategyFactory
+    from embeddings.embedder import get_embedder
+    from database.mongodb import mongo
+    from bson import ObjectId
+    from datetime import datetime
 
     try:
         content = await file.read()
@@ -331,24 +334,65 @@ async def upload_file(
 
         cfg = get_settings()
         embedder = get_embedder(cfg.embedding_model)
-        strategy = ChunkingStrategyFactory.create(
-            estrategia,
-            chunk_size=cfg.chunk_size,
-            chunk_overlap=cfg.chunk_overlap,
-            sentence_max=cfg.sentence_max,
-            sentence_overlap=cfg.sentence_overlap,
-            semantic_threshold=cfg.semantic_threshold,
-        )
-        pipeline = IngestionPipeline(strategy, embedder)
+        
+        # 1. Crear UN solo documento
+        doc_data = {
+            "titulo": file.filename,
+            "contenido_texto": text,
+            "categoria": "inteligencia-artificial",
+            "idioma": "es",
+            "fecha_ingesta": datetime.utcnow(),
+            "metadata": {
+                "autor": "usuario",
+                "año": 2026,
+                "original_filename": file.filename,
+            }
+        }
+        result = await mongo.documentos.insert_one(doc_data)
+        doc_id = str(result.inserted_id)
+        
+        # 2. Generar chunks con las 3 estrategias
+        total_chunks = 0
+        for estrategia in ["fixed", "sentence-aware", "semantic"]:
+            strategy = ChunkingStrategyFactory.create(
+                estrategia,
+                chunk_size=cfg.chunk_size,
+                chunk_overlap=cfg.chunk_overlap,
+                sentence_max=cfg.sentence_max,
+                sentence_overlap=cfg.sentence_overlap,
+                semantic_threshold=cfg.semantic_threshold,
+            )
+            
+            # Generar chunks
+            chunks = strategy.build_chunks(
+                text=text,
+                doc_id=doc_id,
+                modelo=embedder.model_name,
+            )
+            
+            if chunks:
+                # Generar embeddings en batch
+                textos = [c.chunk_texto for c in chunks]
+                embeddings = embedder.embed(textos)
+                
+                # Asignar embeddings
+                for chunk, emb in zip(chunks, embeddings):
+                    chunk.embedding = emb
+                
+                # Insertar chunks
+                docs_mongo = [c.to_mongo() for c in chunks]
+                for d in docs_mongo:
+                    d["doc_id"] = ObjectId(d["doc_id"])
+                
+                await mongo.chunks.insert_many(docs_mongo)
+                total_chunks += len(chunks)
 
-        doc_id = await pipeline.ingest_text(
-            text=text,
-            title=file.filename,
-            category="inteligencia-artificial",
-            metadata={"original_filename": file.filename, "temporal": True},
-        )
-
-        return {"doc_id": doc_id, "filename": file.filename, "chunks": "procesados"}
+        return {
+            "doc_id": doc_id,
+            "filename": file.filename,
+            "chunks": total_chunks,
+            "strategies": ["fixed", "sentence-aware", "semantic"],
+        }
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

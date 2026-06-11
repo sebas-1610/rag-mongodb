@@ -303,7 +303,6 @@ async function uploadFile(file) {
     showLoading(true);
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('estrategia', 'semantic');
 
     try {
         const res = await fetch(`${API_BASE}/upload`, {

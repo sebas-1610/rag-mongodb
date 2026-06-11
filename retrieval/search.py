@@ -161,25 +161,33 @@ class VectorSearchEngine(SearchEngine):
         expanded_query = expand_query(query)
         query_vector = self._embedder.embed_single(expanded_query)
 
-        # Construir filtro pre-vectorial (se aplica ANTES del kNN)
-        pre_filter: Dict[str, Any] = {}
-        if estrategia:
-            pre_filter["estrategia_chunking"] = estrategia
-        if filtros:
-            pre_filter.update(filtros)
+        # Buscar más candidatos para compensar el post-filtrado
+        search_limit = top_k * 3 if (estrategia or filtros) else top_k
 
-        # Pipeline de agregación Atlas
+        # Pipeline: búsqueda vectorial SIN filtro pre
         pipeline = [
             {
                 "$vectorSearch": {
                     "index": "vector_index",
                     "path": "embedding",
                     "queryVector": query_vector,
-                    "numCandidates": top_k * 10,  # candidatos antes del reranking
-                    "limit": top_k,
-                    **({"filter": pre_filter} if pre_filter else {}),
+                    "numCandidates": search_limit * 10,
+                    "limit": search_limit,
                 }
             },
+        ]
+
+        # Post-filtrado con $match (después de la búsqueda vectorial)
+        post_filter: Dict[str, Any] = {}
+        if estrategia:
+            post_filter["estrategia_chunking"] = estrategia
+        if filtros:
+            post_filter.update(filtros)
+
+        if post_filter:
+            pipeline.append({"$match": post_filter})
+
+        pipeline.append(
             {
                 "$project": {
                     "_id": 1,
@@ -189,8 +197,11 @@ class VectorSearchEngine(SearchEngine):
                     "metadata": 1,
                     "score": {"$meta": "vectorSearchScore"},
                 }
-            },
-        ]
+            }
+        )
+
+        # Limitar a top_k después del filtrado
+        pipeline.append({"$limit": top_k})
 
         resultados: List[SearchResult] = []
         async for doc in mongo.chunks.aggregate(pipeline):
