@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     checkHealth();
     loadStats();
+    loadDocuments();
+    loadImages();
     initEventListeners();
 });
 
@@ -254,7 +256,7 @@ function initEventListeners() {
         e.preventDefault();
         dropZone.classList.remove('dragover');
         if (e.dataTransfer.files.length > 0) {
-            uploadFile(e.dataTransfer.files[0]);
+            uploadFiles(Array.from(e.dataTransfer.files));
         }
     });
 
@@ -295,8 +297,50 @@ function initEventListeners() {
 // Upload Functions
 function handleFileSelect(e) {
     if (e.target.files.length > 0) {
-        uploadFile(e.target.files[0]);
+        uploadFiles(Array.from(e.target.files));
     }
+}
+
+async function uploadFiles(files) {
+    if (files.length === 0) return;
+    if (files.length === 1) {
+        await uploadFile(files[0]);
+        return;
+    }
+
+    showLoading(true, 'uploading', `Subiendo ${files.length} archivos...`);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        showLoading(true, 'uploading', `Subiendo ${i + 1}/${files.length}: ${files[i].name}`);
+        const formData = new FormData();
+        formData.append('file', files[i]);
+
+        try {
+            const res = await fetch(`${API_BASE}/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (res.ok) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } catch (err) {
+            errorCount++;
+        }
+    }
+
+    if (errorCount === 0) {
+        showLoading(true, 'success', `${successCount} archivos subidos correctamente`);
+    } else {
+        showLoading(true, 'error', `${successCount} OK, ${errorCount} con error`);
+    }
+
+    loadStats();
+    loadDocuments();
+    setTimeout(() => showLoading(false), 2000);
 }
 
 async function uploadFile(file) {
@@ -361,7 +405,7 @@ function autoResizeTextarea() {
     chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
 }
 
-function showLoading(show, state = 'loading') {
+function showLoading(show, state = 'loading', message = null) {
     const spinner = loadingOverlay.querySelector('.spinner');
     const success = loadingOverlay.querySelector('.loading-success');
     const error = loadingOverlay.querySelector('.loading-error');
@@ -375,13 +419,13 @@ function showLoading(show, state = 'loading') {
         loadingOverlay.classList.add('active');
         if (state === 'success') {
             success.style.display = 'block';
-            text.textContent = '';
+            text.textContent = message || '';
         } else if (state === 'error') {
             error.style.display = 'block';
-            text.textContent = '';
+            text.textContent = message || '';
         } else {
             spinner.style.display = 'block';
-            text.textContent = 'Procesando...';
+            text.textContent = message || 'Procesando...';
         }
     } else {
         loadingOverlay.classList.remove('active');
@@ -396,4 +440,174 @@ function escapeHtml(text) {
 
 function truncate(text, maxLength) {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+}
+
+// =============================================================================
+// IMAGE FUNCTIONS
+// =============================================================================
+
+const imageInput = document.getElementById('imageInput');
+const selectImageBtn = document.getElementById('selectImageBtn');
+const imageDropZone = document.getElementById('imageDropZone');
+const imageSearchInput = document.getElementById('imageSearchInput');
+const imageSearchBtn = document.getElementById('imageSearchBtn');
+const imageResults = document.getElementById('imageResults');
+
+// Image upload
+selectImageBtn.addEventListener('click', () => imageInput.click());
+imageInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        uploadImage(e.target.files[0]);
+    }
+});
+
+// Image drag and drop
+imageDropZone.addEventListener('click', () => imageInput.click());
+imageDropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    imageDropZone.classList.add('dragover');
+});
+imageDropZone.addEventListener('dragleave', () => {
+    imageDropZone.classList.remove('dragover');
+});
+imageDropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    imageDropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+        uploadImage(e.dataTransfer.files[0]);
+    }
+});
+
+// Image search
+imageSearchBtn.addEventListener('click', searchImagesByText);
+imageSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        searchImagesByText();
+    }
+});
+
+async function uploadImage(file) {
+    showLoading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(`${API_BASE}/images/upload`, {
+            method: 'POST',
+            body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showLoading(true, 'success');
+            const counter = document.getElementById('imageCount');
+            if (counter) {
+                const current = parseInt(counter.textContent) || 0;
+                counter.textContent = current + 1;
+            }
+            loadImages();
+        } else {
+            showLoading(true, 'error');
+        }
+    } catch (err) {
+        showLoading(true, 'error');
+    } finally {
+        setTimeout(() => showLoading(false), 1500);
+    }
+}
+
+async function searchImagesByText() {
+    const query = imageSearchInput.value.trim();
+    if (!query) return;
+
+    imageResults.innerHTML = '<p style="color: var(--text-tertiary); font-size: 0.8rem;">Buscando...</p>';
+
+    try {
+        const res = await fetch(`${API_BASE}/images/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, top_k: 5 }),
+        });
+        const data = await res.json();
+
+        if (data.results && data.results.length > 0) {
+            imageResults.innerHTML = data.results.map(r => `
+                <div class="image-result-item">
+                    <img src="${r.url_imagen}" alt="${escapeHtml(r.titulo)}" loading="lazy">
+                    <div class="image-result-info">
+                        <div class="image-result-desc">${escapeHtml(r.descripcion)}</div>
+                        <div class="image-result-score">Score: ${r.score.toFixed(3)}</div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            imageResults.innerHTML = '<p style="color: var(--text-tertiary); font-size: 0.8rem;">No se encontraron imágenes</p>';
+        }
+    } catch (err) {
+        imageResults.innerHTML = '<p style="color: var(--error); font-size: 0.8rem;">Error en la búsqueda</p>';
+    }
+}
+
+function addImageResult(result) {
+    const existing = imageResults.querySelector('.empty-state');
+    if (existing) {
+        imageResults.innerHTML = '';
+    }
+
+    const html = `
+        <div class="image-result-item">
+            <img src="${result.url_imagen}" alt="${escapeHtml(result.titulo)}" loading="lazy">
+            <div class="image-result-info">
+                <div class="image-result-desc">${escapeHtml(result.descripcion)}</div>
+                ${result.etiquetas ? `
+                    <div class="image-result-tags">
+                        ${result.etiquetas.map(t => `<span class="tag">${t.label}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    imageResults.insertAdjacentHTML('afterbegin', html);
+}
+
+async function loadImages() {
+    try {
+        const res = await fetch(`${API_BASE}/images?limit=20`);
+        const data = await res.json();
+
+        const counter = document.getElementById('imageCount');
+        const total = data.total || 0;
+        if (counter) counter.textContent = total;
+
+        if (data.images && data.images.length > 0) {
+            imageResults.innerHTML = data.images.map(img => `
+                <div class="image-result-item">
+                    <img src="${img.url_imagen}" alt="${escapeHtml(img.titulo)}" loading="lazy">
+                    <div class="image-result-info">
+                        <div class="image-result-desc">${escapeHtml(img.descripcion || img.titulo)}</div>
+                        <button class="btn-delete" onclick="deleteImage('${img.doc_id}')" style="font-size:0.7rem;padding:2px 6px;">Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            imageResults.innerHTML = '<p style="color: var(--text-tertiary); font-size: 0.8rem;">No hay imágenes. Sube una para comenzar.</p>';
+        }
+    } catch (err) {
+        imageResults.innerHTML = '';
+    }
+}
+
+async function deleteImage(docId) {
+    if (!confirm('¿Eliminar esta imagen?')) return;
+
+    try {
+        await fetch(`${API_BASE}/images/${docId}`, { method: 'DELETE' });
+        const counter = document.getElementById('imageCount');
+        if (counter) {
+            const current = parseInt(counter.textContent) || 0;
+            counter.textContent = Math.max(0, current - 1);
+        }
+        loadImages();
+    } catch (err) {
+        alert('Error al eliminar');
+    }
 }

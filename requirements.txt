@@ -12,6 +12,7 @@ sentence-transformers
 torch
 numpy
 scikit-learn
+Pillow>=10.0.0
 
 # Chunking
 langchain-text-splitters

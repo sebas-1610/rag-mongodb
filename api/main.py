@@ -128,6 +128,11 @@ class ExperimentRequest(BaseModel):
     top_k: int = Field(5, ge=1, le=10)
 
 
+class ImageSearchRequest(BaseModel):
+    query: str = Field("", description="Texto de búsqueda para imágenes")
+    top_k: int = Field(5, ge=1, le=20)
+
+
 # =============================================================================
 # ENDPOINTS
 # =============================================================================
@@ -312,11 +317,11 @@ async def run_default_experiment():
 
 @app.post("/upload", tags=["Documentos"])
 async def upload_file(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
 ):
     """
-    Sube un archivo (TXT, PDF, DOCX, MD) y lo procesa con las 3 estrategias de chunking.
-    Crea 1 documento y 3 conjuntos de chunks (fixed, sentence-aware, semantic).
+    Sube uno o varios archivos (TXT, PDF, DOCX, MD) y los procesa con las 3 estrategias de chunking.
+    Crea 1 documento y 3 conjuntos de chunks por cada archivo.
     """
     from extractors.text_extractor import extract_text
     from chunking.strategies import ChunkingStrategyFactory
@@ -325,79 +330,99 @@ async def upload_file(
     from bson import ObjectId
     from datetime import datetime
 
-    try:
-        content = await file.read()
-        text = extract_text(file.filename, content)
+    results = []
+    cfg = get_settings()
+    embedder = get_embedder(cfg.embedding_model)
 
-        if not text.strip():
-            raise HTTPException(status_code=400, detail="No se pudo extraer texto del archivo")
+    for file in files:
+        try:
+            content = await file.read()
+            text = extract_text(file.filename, content)
 
-        cfg = get_settings()
-        embedder = get_embedder(cfg.embedding_model)
-        
-        # 1. Crear UN solo documento
-        doc_data = {
-            "titulo": file.filename,
-            "contenido_texto": text,
-            "categoria": "inteligencia-artificial",
-            "idioma": "es",
-            "fecha_ingesta": datetime.utcnow(),
-            "metadata": {
-                "autor": "usuario",
-                "año": 2026,
-                "original_filename": file.filename,
+            if not text.strip():
+                results.append({
+                    "filename": file.filename,
+                    "success": False,
+                    "error": "No se pudo extraer texto del archivo",
+                })
+                continue
+
+            doc_data = {
+                "titulo": file.filename,
+                "contenido_texto": text,
+                "categoria": "inteligencia-artificial",
+                "idioma": "es",
+                "fecha_ingesta": datetime.utcnow(),
+                "metadata": {
+                    "autor": "usuario",
+                    "año": 2026,
+                    "original_filename": file.filename,
+                }
             }
-        }
-        result = await mongo.documentos.insert_one(doc_data)
-        doc_id = str(result.inserted_id)
-        
-        # 2. Generar chunks con las 3 estrategias
-        total_chunks = 0
-        for estrategia in ["fixed", "sentence-aware", "semantic"]:
-            strategy = ChunkingStrategyFactory.create(
-                estrategia,
-                chunk_size=cfg.chunk_size,
-                chunk_overlap=cfg.chunk_overlap,
-                sentence_max=cfg.sentence_max,
-                sentence_overlap=cfg.sentence_overlap,
-                semantic_threshold=cfg.semantic_threshold,
-            )
-            
-            # Generar chunks
-            chunks = strategy.build_chunks(
-                text=text,
-                doc_id=doc_id,
-                modelo=embedder.model_name,
-            )
-            
-            if chunks:
-                # Generar embeddings en batch
-                textos = [c.chunk_texto for c in chunks]
-                embeddings = embedder.embed(textos)
-                
-                # Asignar embeddings
-                for chunk, emb in zip(chunks, embeddings):
-                    chunk.embedding = emb
-                
-                # Insertar chunks
-                docs_mongo = [c.to_mongo() for c in chunks]
-                for d in docs_mongo:
-                    d["doc_id"] = ObjectId(d["doc_id"])
-                
-                await mongo.chunks.insert_many(docs_mongo)
-                total_chunks += len(chunks)
+            result = await mongo.documentos.insert_one(doc_data)
+            doc_id = str(result.inserted_id)
 
-        return {
-            "doc_id": doc_id,
-            "filename": file.filename,
-            "chunks": total_chunks,
-            "strategies": ["fixed", "sentence-aware", "semantic"],
-        }
+            total_chunks = 0
+            for estrategia in ["fixed", "sentence-aware", "semantic"]:
+                strategy = ChunkingStrategyFactory.create(
+                    estrategia,
+                    chunk_size=cfg.chunk_size,
+                    chunk_overlap=cfg.chunk_overlap,
+                    sentence_max=cfg.sentence_max,
+                    sentence_overlap=cfg.sentence_overlap,
+                    semantic_threshold=cfg.semantic_threshold,
+                )
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al procesar archivo: {e}")
+                chunks = strategy.build_chunks(
+                    text=text,
+                    doc_id=doc_id,
+                    modelo=embedder.model_name,
+                )
+
+                if chunks:
+                    textos = [c.chunk_texto for c in chunks]
+                    embeddings = embedder.embed(textos)
+
+                    for chunk, emb in zip(chunks, embeddings):
+                        chunk.embedding = emb
+
+                    docs_mongo = [c.to_mongo() for c in chunks]
+                    for d in docs_mongo:
+                        d["doc_id"] = ObjectId(d["doc_id"])
+
+                    await mongo.chunks.insert_many(docs_mongo)
+                    total_chunks += len(chunks)
+
+            results.append({
+                "doc_id": doc_id,
+                "filename": file.filename,
+                "chunks": total_chunks,
+                "strategies": ["fixed", "sentence-aware", "semantic"],
+                "success": True,
+            })
+
+        except ValueError as e:
+            results.append({
+                "filename": file.filename,
+                "success": False,
+                "error": str(e),
+            })
+        except Exception as e:
+            results.append({
+                "filename": file.filename,
+                "success": False,
+                "error": f"Error al procesar archivo: {e}",
+            })
+
+    if len(results) == 1:
+        return results[0]
+
+    return {
+        "total_files": len(files),
+        "success_count": sum(1 for r in results if r.get("success")),
+        "error_count": sum(1 for r in results if not r.get("success")),
+        "results": results,
+    }
 
 
 @app.get("/documents", tags=["Documentos"])
@@ -441,7 +466,7 @@ async def load_dataset():
     """
     Carga el dataset predefinido (data/dataset.json) al RAG.
     """
-    from ingestion.pipeline import ingest_all_strategies, JSONDatasetLoader
+    from ingestion.pipeline import IngestionPipeline, JSONDatasetLoader
     from chunking.strategies import ChunkingStrategyFactory
     from embeddings.embedder import get_embedder
 
@@ -471,6 +496,157 @@ async def load_dataset():
         raise HTTPException(status_code=404, detail="Dataset no encontrado")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al cargar dataset: {e}")
+
+
+# =============================================================================
+# IMÁGENES - UPLOAD, BÚSQUEDA, DESCRIPCIÓN
+# =============================================================================
+
+
+@app.post("/images/upload", tags=["Imágenes"])
+async def upload_image(
+    file: UploadFile = File(...),
+):
+    """
+    Sube una imagen, la describe con CLIP y la guarda en la base de datos.
+    Retorna la descripción y la URL de la imagen.
+    """
+    from images.image_handler import get_image_handler
+
+    try:
+        handler = get_image_handler()
+        content = await file.read()
+
+        result = await handler.process_image(
+            file_content=content,
+            filename=file.filename,
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar imagen: {e}")
+
+
+@app.post("/images/search", tags=["Imágenes"])
+async def search_images(request: ImageSearchRequest):
+    """
+    Busca imágenes similares por texto.
+    """
+    from images.image_handler import get_image_handler
+
+    try:
+        handler = get_image_handler()
+
+        if not request.query:
+            raise HTTPException(status_code=400, detail="Se requiere un texto de búsqueda")
+
+        results = await handler.search_by_text(query=request.query, top_k=request.top_k)
+
+        return {
+            "query": request.query,
+            "results": results,
+            "total": len(results),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en la búsqueda: {e}")
+
+
+@app.post("/images/search-similar", tags=["Imágenes"])
+async def search_similar_images(
+    file: UploadFile = File(...),
+    top_k: int = 5,
+):
+    """
+    Busca imágenes similares a una imagen de consulta.
+    """
+    from images.image_handler import get_image_handler
+
+    try:
+        handler = get_image_handler()
+        content = await file.read()
+
+        # Guardar temporalmente la imagen de consulta
+        import tempfile
+        import os
+
+        suffix = Path(file.filename).suffix.lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        try:
+            results = await handler.search_by_image(image_path=tmp_path, top_k=top_k)
+        finally:
+            os.remove(tmp_path)
+
+        return {
+            "query_image": file.filename,
+            "results": results,
+            "total": len(results),
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en la búsqueda: {e}")
+
+
+@app.get("/images/{doc_id}", tags=["Imágenes"])
+async def get_image(doc_id: str):
+    """
+    Obtiene los detalles de una imagen por su ID.
+    """
+    from images.image_handler import get_image_handler
+
+    handler = get_image_handler()
+    image = await handler.get_image(doc_id)
+
+    if not image:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+
+    return image
+
+
+@app.delete("/images/{doc_id}", tags=["Imágenes"])
+async def delete_image(doc_id: str):
+    """
+    Elimina una imagen y su archivo físico.
+    """
+    from images.image_handler import get_image_handler
+
+    handler = get_image_handler()
+    deleted = await handler.delete_image(doc_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+
+    return {"deleted": True, "doc_id": doc_id}
+
+
+@app.get("/images", tags=["Imágenes"])
+async def list_images(
+    limit: int = 50,
+    skip: int = 0,
+):
+    """
+    Lista todas las imágenes almacenadas.
+    """
+    from images.image_handler import get_image_handler
+
+    handler = get_image_handler()
+    images = await handler.list_images(limit=limit, skip=skip)
+    total = await handler.count_images()
+
+    return {
+        "images": images,
+        "total": total,
+        "limit": limit,
+        "skip": skip,
+    }
 
 
 # =============================================================================

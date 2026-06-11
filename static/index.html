@@ -82,11 +82,11 @@
                         <polyline points="17 8 12 3 7 8"/>
                         <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
-                    <p>Arrastra un archivo aquí</p>
+                    <p>Arrastra archivos aquí</p>
                     <span>TXT, PDF, DOCX, MD</span>
-                    <input type="file" id="fileInput" accept=".txt,.pdf,.docx,.md" hidden>
+                    <input type="file" id="fileInput" accept=".txt,.pdf,.docx,.md" multiple hidden>
                 </div>
-                <button class="btn btn-secondary btn-full" id="selectFileBtn">Seleccionar Archivo</button>
+                <button class="btn btn-secondary btn-full" id="selectFileBtn">Seleccionar Archivos</button>
 
                 <div class="uploaded-docs" id="uploadedDocs"></div>
             </div>
@@ -131,6 +131,26 @@
                 </div>
                 <button class="btn btn-secondary" id="quickSearchBtn">Buscar</button>
                 <div class="quick-results" id="quickResults"></div>
+            </div>
+
+            <div class="images-section">
+                <h3>Búsqueda de Imágenes <span class="image-counter" id="imageCount">0</span></h3>
+                <div class="image-upload-area" id="imageDropZone">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <p>Sube una imagen para buscar similares</p>
+                    <span>JPG, PNG, WebP</span>
+                    <input type="file" id="imageInput" accept=".jpg,.jpeg,.png,.webp" hidden>
+                </div>
+                <button class="btn btn-secondary btn-full" id="selectImageBtn">Seleccionar Imagen</button>
+                <div class="image-search-box">
+                    <input type="text" id="imageSearchInput" placeholder="Buscar por texto (ej: nubes)">
+                    <button class="btn btn-secondary" id="imageSearchBtn">Buscar</button>
+                </div>
+                <div class="image-results" id="imageResults"></div>
             </div>
         </aside>
 

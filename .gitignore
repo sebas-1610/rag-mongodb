@@ -3,3 +3,7 @@
 .env.local
 .env*.local
 taller_46093
+
+# Imágenes subidas por usuarios (no committed)
+static/images/*
+!static/images/.gitkeep

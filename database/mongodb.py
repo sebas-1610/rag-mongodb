@@ -22,6 +22,7 @@ from config.settings import get_settings
 COL_DOCUMENTOS = "documentos"
 COL_CHUNKS = "chunks"
 COL_EVALUACIONES = "evaluaciones"
+COL_IMAGENES = "imagenes"
 
 
 class MongoDBClient:
@@ -72,6 +73,10 @@ class MongoDBClient:
     @property
     def evaluaciones(self):
         return self.db[COL_EVALUACIONES]
+
+    @property
+    def imagenes(self):
+        return self.db[COL_IMAGENES]
 
 
 # ── Singleton global ─────────────────────────────────────────────────────────

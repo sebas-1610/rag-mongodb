@@ -18,9 +18,13 @@ class Settings(BaseSettings):
     groq_api_key: str
     groq_model: str = "llama-3.1-8b-instant"
 
-    # Embeddings
+    # Embeddings (texto)
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dim: int = 384
+
+    # CLIP (imágenes + texto)
+    clip_model: str = "clip-ViT-B-32"
+    clip_dim: int = 512
 
     # Chunking
     chunk_size: int = 256

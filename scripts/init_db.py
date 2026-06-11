@@ -78,6 +78,25 @@ SCHEMA_EVALUACIONES = {
     }
 }
 
+SCHEMA_IMAGENES = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["titulo", "embedding", "url_imagen", "fecha_ingesta"],
+        "properties": {
+            "titulo": {"bsonType": "string"},
+            "descripcion": {"bsonType": "string"},
+            "etiquetas": {"bsonType": "array"},
+            "embedding": {"bsonType": "array"},
+            "url_imagen": {"bsonType": "string"},
+            "categoria": {"bsonType": "string"},
+            "modelo": {"bsonType": "string"},
+            "dimension": {"bsonType": "int"},
+            "fecha_ingesta": {"bsonType": "date"},
+            "metadata": {"bsonType": "object"},
+        },
+    }
+}
+
 
 async def init_database() -> None:
     cfg = get_settings()
@@ -93,6 +112,7 @@ async def init_database() -> None:
         ("documentos", SCHEMA_DOCUMENTOS),
         ("chunks", SCHEMA_CHUNKS),
         ("evaluaciones", SCHEMA_EVALUACIONES),
+        ("imagenes", SCHEMA_IMAGENES),
     ]:
         if nombre not in colecciones_existentes:
             await db.create_collection(
@@ -141,9 +161,10 @@ async def init_database() -> None:
     print("  OK idx_estrategia_index (compuesto)")
 
     # ── 4. Índice vectorial en Atlas (knnVector) ─────────────────────────────
-    print("\nNOTA: El índice vectorial (knnVector) debe crearse manualmente")
+    print("\nNOTA: Los índices vectoriales (knnVector) deben crearse manualmente")
     print("en MongoDB Atlas UI o con la API de Atlas Search.\n")
-    print("Configuración del índice vectorial para 'chunks':")
+    
+    print("Configuración del índice vectorial para 'chunks' (texto, 384 dims):")
     print(
         """
     {
@@ -160,17 +181,48 @@ async def init_database() -> None:
     }
     """
     )
-    print("  Pasos:")
+    print("  Nombre del indice: 'vector_index'")
+    print("  Coleccion: chunks")
+    
+    print("\nConfiguración del índice vectorial para 'imagenes' (CLIP, 512 dims):")
+    print(
+        """
+    {
+        "mappings": {
+            "dynamic": true,
+            "fields": {
+            "embedding": {
+                "dimensions": 512,
+                "similarity": "cosine",
+                "type": "knnVector"
+                }
+            }
+        }
+    }
+    """
+    )
+    print("  Nombre del indice: 'vector_index_imagenes'")
+    print("  Coleccion: imagenes")
+    
+    print("\n  Pasos:")
     print("  1. Ir a Atlas > tu cluster > Search > Create Search Index")
     print("  2. Seleccionar 'JSON Editor'")
-    print("  3. Colección: chunks")
-    print("  4. Pegar el JSON de arriba")
-    print("  5. Nombre del indice: 'vector_index'")
+    print("  3. Crear un índice para 'chunks' con 384 dims (nombre: vector_index)")
+    print("  4. Crear un índice para 'imagenes' con 512 dims (nombre: vector_index_imagenes)")
 
     # ── 5. Índice en evaluaciones ────────────────────────────────────────────
     print("\nCreando índices en 'evaluaciones'...")
     await db["evaluaciones"].create_index([("fecha", ASCENDING)], name="idx_fecha_eval")
     print("  OK idx_fecha_eval")
+
+    # ── 6. Índices en imagenes ─────────────────────────────────────────────
+    print("\nCreando índices en 'imagenes'...")
+    await db["imagenes"].create_index([("doc_id", ASCENDING)], name="idx_img_doc_id")
+    await db["imagenes"].create_index([("categoria", ASCENDING)], name="idx_img_categoria")
+    await db["imagenes"].create_index([("fecha_ingesta", ASCENDING)], name="idx_img_fecha")
+    print("  OK idx_img_doc_id")
+    print("  OK idx_img_categoria")
+    print("  OK idx_img_fecha")
 
     client.close()
     print("\nInicializacion completada.")
